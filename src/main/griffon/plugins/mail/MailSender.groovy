@@ -35,7 +35,8 @@ import javax.mail.internet.MimeMessage
  *
  * @author Josh A. Reed
  */
-class MailSender {
+@Singleton 
+class MailSender implements MailProvider {
 	/**
 	 * Send an email using the arguments specified.  The following arguments are recognized:
 	 *	<ul>
@@ -57,7 +58,7 @@ class MailSender {
 	 * 
 	 * Future versions of this service will support HTML and file attachments.
 	 */
-	static void sendMail(Map args) {
+	void sendMail(Map args) {
 		if (!args.mailhost)		throw new RuntimeException('No mail host specified')
 		if (!args.to) throw new RuntimeException('No recipient specified')
 		
