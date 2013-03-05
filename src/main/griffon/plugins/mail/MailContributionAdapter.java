@@ -21,6 +21,18 @@ import java.util.Map;
 /**
  * @author Andres Almiray
  */
-public interface MailProvider {
-    void withMail(Map<String, Object> params);
+public class MailContributionAdapter implements MailContributionHandler {
+    private MailProvider provider = DefaultMailProvider.getInstance();
+
+    public void setMailProvider(MailProvider provider) {
+        this.provider = provider != null ? provider : DefaultMailProvider.getInstance();
+    }
+
+    public MailProvider getMailProvider() {
+        return provider;
+    }
+
+    public void withMail(Map<String, Object> params) {
+        provider.withMail(params);
+    }
 }

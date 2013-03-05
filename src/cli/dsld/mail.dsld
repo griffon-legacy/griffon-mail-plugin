@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package griffon.plugins.mail;
-
-import java.util.Map;
+package dsld
 
 /**
  * @author Andres Almiray
  */
-public interface MailProvider {
-    void withMail(Map<String, Object> params);
+
+contribute(enclosingClass(annotatedBy('griffon.plugins.mail.MailAware'))) {
+    provider = "Mail DSL"
+    delegatesTo "griffon.plugins.mail.MailContributionHandler"
 }

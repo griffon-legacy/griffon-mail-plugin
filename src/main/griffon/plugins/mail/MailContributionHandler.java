@@ -21,6 +21,10 @@ import java.util.Map;
 /**
  * @author Andres Almiray
  */
-public interface MailProvider {
+public interface MailContributionHandler {
+    void setMailProvider(MailProvider provider);
+
+    MailProvider getMailProvider();
+
     void withMail(Map<String, Object> params);
 }

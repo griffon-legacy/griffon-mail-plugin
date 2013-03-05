@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2012 the original author or authors.
+ * Copyright 2009-2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+import griffon.core.GriffonApplication
 import griffon.core.GriffonClass
 import griffon.plugins.mail.MailEnhancer
+import griffon.plugins.mail.MailContributionHandler
 
 /**
  * @author Josh A. Reed
@@ -26,6 +28,7 @@ class MailGriffonAddon {
         def types = app.config.griffon?.mail?.injectInto ?: ['controller']
         for(String type : types) {
             for(GriffonClass gc : app.artifactManager.getClassesOfType(type)) {
+                if (MailContributionHandler.isAssignableFrom(gc.clazz)) continue
                 MailEnhancer.enhance(gc.metaClass)
             }
         }

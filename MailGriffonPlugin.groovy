@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2012 the original author or authors.
+ * Copyright 2009-2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
  */
 class MailGriffonPlugin {
     // the plugin version
-    String version = '0.4'
+    String version = '1.0.0'
     // the version or versions of Griffon the plugin is designed for
-    String griffonVersion = '0.9.5 > *'
+    String griffonVersion = '1.2.0 > *'
     // the other plugins this plugin depends on
-    Map dependsOn = [:]
+    Map dependsOn = [lombok: '0.4']
     // resources that are included in plugin packaging
     List pluginIncludes = []
     // the plugin license
@@ -58,9 +58,10 @@ The Mail plugin adds the ability to send email from your Griffon application.
 
 Usage
 -----
+
 The plugin will inject the following dynamic methods:
 
-* `sendMail(Map params)`
+ * `void withMail(Map<String, Object> params)`
 
 Where params may contain
 
@@ -81,24 +82,67 @@ Where params may contain
 | html        | String       | no       | the message content in HTML                                                                                                                  |
 | attachments | List&lt;String&gt; | no       | the list of file paths (as Strings) to attach to the email.                                                                                  |
 
-These methods are also accessible to any component through the singleton `griffon.plugins.mail.MailEnhancer`.
-You can inject these methods to non-artifacts via metaclasses. Simply grab hold of a particular metaclass and call
-`MailEnhancer.enhance(metaClassInstance)`.
+These methods are also accessible to any component through the singleton
+`griffon.plugins.mail.DefaultMailProvider`. You can inject these methods to
+non-artifacts via metaclasses. Simply grab hold of a particular metaclass and
+call `MailEnhancer.enhance(metaClassInstance)`.
 
 Configuration
 -------------
-### Dynamic method injection
+
+### MailAware AST Transformation
+
+The preferred way to mark a class for method injection is by annotating it with
+`@griffon.plugins.mail.MailAware`. This transformation injects the
+`griffon.plugins.mail.MailContributionHandler` interface and default behavior
+that fulfills the contract.
+
+### Dynamic Method Injection
 
 Dynamic methods will be added to controllers by default. You can
 change this setting by adding a configuration flag in `griffon-app/conf/Config.groovy`
 
     griffon.mail.injectInto = ['controller', 'service']
 
+Dynamic method injection will be skipped for classes implementing
+`griffon.plugins.mail.MailContributionHandler`.
+
+### Default Configuration
+
+With the exception of `to:` all parameters may be defined in the application's
+configuration file (`Config.groovy`), using `griffon.mail` as a prefix. For
+example here is how you would configure the default sender to send with a Gmail
+account:
+
+    griffon {
+        mail {
+            host     = 'smtp.gmail.com'
+            port     = 465
+            username = 'youraccount@gmail.com'
+            password = 'yourpassword'
+            props = [
+                'mail.smtp.auth': 'true',
+                'mail.smtp.socketFactory.port': '465',
+                'mail.smtp.socketFactory.class': 'javax.net.ssl.SSLSocketFactory',
+                'mail.smtp.socketFactory.fallback': 'false'
+            ]
+        }
+    }
+
+You can also set the default "from" address to use for messages using:
+
+    griffon.mail.default.from = server@yourhost.com'
+
+This will be used if no `from:` is supplied in a mail. You can also disable mail
+delivery completely in certain environments by setting
+
+    griffon.mail.disabled = true
+
 ### Examples
 
 Sending a regular email:
 
-        sendMail(mailhost: 'smtp.company.com',
+        withMail(mailhost: 'smtp.company.com',
             to: 'jareed@andrill.org',
             from: 'joeblow@company.com',
             subject: 'Test Mail',
@@ -112,7 +156,7 @@ Sending a regular email:
 
 Sending an email via Google's SMTP server:
 
-        sendMail(transport: 'smtps',
+        withMail(transport: 'smtps',
             auth: true,
             mailhost: 'smtp.gmail.com',
             user: 'user@gmail.com',
@@ -130,7 +174,7 @@ Sending an email via Google's SMTP server:
 
 Sending an HTML email with an attachment via Google's SMTP server:
 
-        sendMail(
+        withMail(
             transport: 'smtps',
             auth: true,
             mailhost: 'smtp.gmail.com',
@@ -156,26 +200,32 @@ Sending an HTML email with an attachment via Google's SMTP server:
 Notes
 -----
 
-As of version 0.2 this plugin supports plain text, HTML, attachments, or some combination thereof.
+As of version 0.2 this plugin supports plain text, HTML, attachments, or some
+combination thereof.
 
-`sendMail` blocks until the mail is sent or until the request times out. You are responsible for making sure it is called
-off of the EDT so it doesn't affect your application if the SMTP server is not available.
+`withMail` blocks until the mail is sent or until the request times out. You are
+responsible for making sure it is called off of the UI thread so it doesn't affect
+your application if the SMTP server is not available.
 
 Testing
 -------
-Dynamic methods will not be automatically injected during unit testing, because addons are simply not initialized
-for this kind of tests. However you can use `MailEnhancer.enhance(metaClassInstance, mailProviderInstance)` where 
-`mailProviderInstance` is of type `griffon.plugins.mail.MailProvider`. The contract for this interface looks like this
+
+Dynamic methods will not be automatically injected during unit testing, because
+addons are simply not initialized for this kind of tests. However you can use
+`MailEnhancer.enhance(metaClassInstance, mailProviderInstance)` where
+`mailProviderInstance` is of type `griffon.plugins.mail.MailProvider`.
+The contract for this interface looks like this
 
     public interface MailProvider {
-        void sendMail(Map params);
+        void withMail(Map<String, Object> params);
     }
 
-It's up to you define how these methods need to be implemented for your tests. For example, here's an implementation that never
-fails regardless of the arguments it receives
+It's up to you define how these methods need to be implemented for your tests.
+For example, here's an implementation that never fails regardless of the
+arguments it receives
 
     class MyMailProvider implements MailProvider {
-        void sendMail(Map params) { }
+        void withMail(Map<String, Object> params) { null }
     }
     
 This implementation may be used in the following way
@@ -187,5 +237,93 @@ This implementation may be used in the following way
             // exercise service methods
         }
     }
+
+On the other hand, if the service is annotated with `@MailAware` then usage
+of `MailEnhancer` should be avoided at all costs. Simply set
+`mailProviderInstance` on the service instance directly, like so, first the
+service definition
+
+    @griffon.plugins.mail.MailAware
+    class MyService {
+        def serviceMethod() { ... }
+    }
+
+Next is the test
+
+    class MyServiceTests extends GriffonUnitTestCase {
+        void testSmokeAndMirrors() {
+            MyService service = new MyService()
+            service.mailProvider = new MyMailProvider()
+            // exercise service methods
+        }
+    }
+
+Tool Support
+------------
+
+### DSL Descriptors
+
+This plugin provides DSL descriptors for Intellij IDEA and Eclipse (provided
+you have the Groovy Eclipse plugin installed). These descriptors are found
+inside the `griffon-mail-compile-x.y.z.jar`, with locations
+
+ * dsdl/mail.dsld
+ * gdsl/mail.gdsl
+
+### Lombok Support
+
+Rewriting Java AST in a similar fashion to Groovy AST transformations is
+possible thanks to the [lombok][1] plugin.
+
+#### JavaC
+
+Support for this compiler is provided out-of-the-box by the command line tools.
+There's no additional configuration required.
+
+#### Eclipse
+
+Follow the steps found in the [Lombok][1] plugin for setting up Eclipse up to
+number 5.
+
+ 6. Go to the path where the `lombok.jar` was copied. This path is either found
+    inside the Eclipse installation directory or in your local settings. Copy
+    the following file from the project's working directory
+
+         $ cp $USER_HOME/.griffon/<version>/projects/<project>/plugins/mail-<version>/dist/griffon-mail-compile-<version>.jar .
+
+ 6. Edit the launch script for Eclipse and tweak the boothclasspath entry so
+    that includes the file you just copied
+
+        -Xbootclasspath/a:lombok.jar:lombok-pg-<version>.jar:griffon-lombok-compile-<version>.jar:griffon-mail-compile-<version>.jar
+
+ 7. Launch Eclipse once more. Eclipse should be able to provide content assist
+    for Java classes annotated with `@MailAware`.
+
+#### NetBeans
+
+Follow the instructions found in [Annotation Processors Support in the NetBeans
+IDE, Part I: Using Project Lombok][2]. You may need to specify
+`lombok.core.AnnotationProcessor` in the list of Annotation Processors.
+
+NetBeans should be able to provide code suggestions on Java classes annotated
+with `@MailAware`.
+
+#### Intellij IDEA
+
+Follow the steps found in the [Lombok][1] plugin for setting up Intellij IDEA
+up to number 5.
+
+ 6. Copy `griffon-mail-compile-<version>.jar` to the `lib` directory
+
+         $ pwd
+           $USER_HOME/Library/Application Support/IntelliJIdea11/lombok-plugin
+         $ cp $USER_HOME/.griffon/<version>/projects/<project>/plugins/mail-<version>/dist/griffon-mail-compile-<version>.jar lib
+
+ 7. Launch IntelliJ IDEA once more. Code completion should work now for Java
+    classes annotated with `@MailAware`.
+
+
+[1]: /plugin/lombok
+[2]: http://netbeans.org/kb/docs/java/annotations-lombok.html
 '''
 }
