@@ -4,6 +4,7 @@ griffon.project.dependency.resolution = {
     repositories {
         griffonHome()
         mavenCentral()
+        mavenLocal()
     }
     dependencies {
         compile 'javax.mail:mail:1.4.6-rc1'

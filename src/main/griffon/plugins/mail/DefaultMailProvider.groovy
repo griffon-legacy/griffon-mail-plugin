@@ -43,6 +43,8 @@ class DefaultMailProvider implements MailProvider {
         INSTANCE
     }
 
+    private DefaultMailProvider() {}
+
     /**
      * Send an email using the arguments specified.  The following arguments are recognized:
      *  <ul>
